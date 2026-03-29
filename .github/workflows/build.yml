@@ -1,33 +1,41 @@
 name: Gerar .exe Windows
-
+ 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # permite rodar manualmente pelo site do GitHub
-
+  workflow_dispatch:
+ 
+permissions:
+  contents: write  # necessário para criar releases
+ 
 jobs:
   build:
     runs-on: windows-latest
-
+ 
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
-
+ 
       - name: Instalar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
+ 
       - name: Instalar dependências
         run: pip install flask openpyxl pyinstaller
-
+ 
       - name: Gerar o .exe
         run: |
           pyinstaller --onefile --add-data "templates;templates" --name AuxVarejo --noconsole app.py
-
-      - name: Disponibilizar o .exe para download
-        uses: actions/upload-artifact@v4
+ 
+      - name: Publicar Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: AuxVarejo-Windows
-          path: dist/AuxVarejo.exe
-          retention-days: 30
+          tag_name: latest
+          name: "AuxVarejo — versão atual"
+          body: |
+            Sistema auxiliar de vendas offline.
+            Baixe o arquivo AuxVarejo.exe e execute diretamente — sem instalação.
+          files: dist/AuxVarejo.exe
+          make_latest: true
+ 
