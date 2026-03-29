@@ -20,8 +20,26 @@ BASE_DIR = os.path.dirname(
 )
 DB_PATH = os.path.join(BASE_DIR, 'dados.db')
 
+def get_secret_key():
+    """
+    Gera uma chave aleatória na primeira vez e reutiliza nas seguintes.
+    Fica armazenada no banco, não no código.
+    """
+    db = sqlite3.connect(DB_PATH)
+    db.execute("CREATE TABLE IF NOT EXISTS config (chave TEXT PRIMARY KEY, valor TEXT)")
+    row = db.execute("SELECT valor FROM config WHERE chave='secret_key'").fetchone()
+    if row:
+        key = row[0]
+    else:
+        import secrets
+        key = secrets.token_hex(32)
+        db.execute("INSERT INTO config(chave,valor) VALUES('secret_key',?)", (key,))
+        db.commit()
+    db.close()
+    return key
+
 app = Flask(__name__, template_folder=resource_path('templates'))
-app.secret_key = 'auxvarejo-local-2024'
+app.secret_key = get_secret_key()
 
 
 # ── BANCO DE DADOS ─────────────────────────────────────────────────────────
@@ -156,18 +174,41 @@ def importar():
         rows = []
         headers = []
 
-        # ── XLS (Excel 97-2003, formato binário) ───────────────────────────
+        # ── XLS ────────────────────────────────────────────────────────────
+        # Muitos ERPs exportam arquivos .xls que são na verdade TSV ou CSV
+        # renomeados. Tentamos xlrd primeiro; se falhar, lemos como texto.
         if nome_arquivo.endswith('.xls'):
+            conteudo_bytes = arquivo.read()
             try:
                 import xlrd
-            except ImportError:
-                return jsonify({'ok': False,
-                    'msg': 'Biblioteca xlrd não encontrada. Contate o suporte.'}), 400
+                wb = xlrd.open_workbook(file_contents=conteudo_bytes)
+                ws = wb.sheet_by_index(0)
+                rows = [ws.row_values(r) for r in range(ws.nrows)]
+            except Exception:
+                # Arquivo .xls falso — ERP exportou texto com extensão errada.
+                # Tenta decodificar e detectar o separador automaticamente.
+                texto = None
+                for enc in ('utf-8-sig', 'latin-1', 'cp1252'):
+                    try:
+                        texto = conteudo_bytes.decode(enc)
+                        break
+                    except Exception:
+                        continue
 
-            conteudo = arquivo.read()
-            wb = xlrd.open_workbook(file_contents=conteudo)
-            ws = wb.sheet_by_index(0)
-            rows = [ws.row_values(r) for r in range(ws.nrows)]
+                if not texto:
+                    return jsonify({'ok': False,
+                        'msg': 'Não foi possível ler o arquivo. Tente exportar como CSV.'}), 400
+
+                # csv.Sniffer detecta o separador automaticamente
+                try:
+                    dialeto = csv.Sniffer().sniff(texto[:4096], delimiters='\t,;|')
+                    sep_detectado = dialeto.delimiter
+                except csv.Error:
+                    # Sniffer falhou — assume tab, que é o mais comum em ERPs
+                    sep_detectado = '\t'
+
+                reader = csv.reader(io.StringIO(texto), delimiter=sep_detectado)
+                rows = list(reader)
 
         # ── XLSX (Excel moderno, formato XML/zip) ──────────────────────────
         elif nome_arquivo.endswith('.xlsx'):
