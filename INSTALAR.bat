@@ -1,10 +1,8 @@
 @echo off
-echo ============================================
 echo   AuxVarejo - Instalacao
-echo ============================================
 echo.
 echo Instalando dependencias Python...
-pip install flask openpyxl
+pip install flask openpyxl xlrd
 echo.
 echo Instalacao concluida!
 echo Para rodar o sistema, execute: RODAR.bat
