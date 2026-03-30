@@ -69,8 +69,6 @@ def init_db():
             nome    TEXT NOT NULL,
             preco   REAL NOT NULL DEFAULT 0
         );
-        -- Migração: adiciona coluna em bancos já existentes (ignora se já existe)
-        ALTER TABLE produtos ADD COLUMN codigo_barras TEXT;
         CREATE TABLE IF NOT EXISTS vendas (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             data        TEXT NOT NULL,
