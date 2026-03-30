@@ -97,9 +97,9 @@
   .total-divider{border:none;border-top:1px solid rgba(196,127,0,.2);margin:8px 0}
 
   /* QTY */
-  .qty-ctrl{display:flex;align-items:center;gap:3px}
-  .qty-ctrl input{width:46px;text-align:center;padding:5px;font-size:.85rem}
-  .qty-btn{background:var(--border);border:none;color:var(--text);font-size:1rem;width:26px;height:26px;border-radius:2px;cursor:pointer;line-height:1;flex-shrink:0}
+  .qty-ctrl{display:flex;align-items:center;gap:5px}
+  .qty-ctrl input{width:58px;text-align:center;padding:7px 5px;font-size:1rem;font-weight:600}
+  .qty-btn{background:var(--border);border:none;color:var(--text);font-size:1.2rem;width:34px;height:34px;border-radius:3px;cursor:pointer;line-height:1;flex-shrink:0;font-weight:700}
   .qty-btn:hover{background:var(--accent);color:#fff}
 
   /* TOAST */
@@ -304,8 +304,7 @@
             <option>Cartão Débito</option>
             <option>Cartão Crédito</option>
             <option>PIX</option>
-            <option>Cartão Alimentação</option>
-            <option>Cartão Refeição</option>
+            <option>Alimentação/Refeição</option>
             <option>Depósito PIX</option>
             <option>Fiado</option>
             <option>Outro</option>
@@ -368,6 +367,7 @@
           </select>
         </div>
         <div class="col flex1"><label>Coluna código</label><input type="text" id="colCodigo" value="cod"></div>
+        <div class="col flex1"><label>Coluna cód. barras</label><input type="text" id="colBarras" value="codigo de barras"></div>
         <div class="col flex1"><label>Coluna nome</label><input type="text" id="colNome" value="produto"></div>
         <div class="col flex1"><label>Coluna preço</label><input type="text" id="colPreco" value="pv"></div>
       </div>
@@ -421,8 +421,7 @@
         <div class="fin-pill" onclick="selPag(this,'Cartão Débito')">💳 Débito</div>
         <div class="fin-pill" onclick="selPag(this,'Cartão Crédito')">💳 Crédito</div>
         <div class="fin-pill" onclick="selPag(this,'PIX')">⚡ PIX</div>
-        <div class="fin-pill" onclick="selPag(this,'Cartão Alimentação')">🍽 Alimentação</div>
-        <div class="fin-pill" onclick="selPag(this,'Cartão Refeição')">🥗 Refeição</div>
+        <div class="fin-pill" onclick="selPag(this,'Alimentação/Refeição')">🍽 Alimentação/Refeição</div>
         <div class="fin-pill" onclick="selPag(this,'Depósito PIX')">🏦 Depósito PIX</div>
         <div class="fin-pill" onclick="selPag(this,'Fiado')">📋 Fiado</div>
         <div class="fin-pill" onclick="selPag(this,'Outro')">… Outro</div>
@@ -552,16 +551,21 @@ function buscarVenda(){
 
     // Verifica match exato de código (para inserção por Enter)
     const qLower    = q.toLowerCase();
-    const exactMatch = data.find(p => String(p.codigo).toLowerCase() === qLower);
+    // Match exato: código interno OU código de barras (para leitores de código de barras)
+    const exactMatch = data.find(p =>
+      String(p.codigo).toLowerCase()        === qLower ||
+      String(p.codigo_barras || '').toLowerCase() === qLower
+    );
 
+    // Match exato: código interno OU código de barras
     if (exactMatch){
-      hint.textContent = `↵ Enter → adicionar "${exactMatch.nome}"`;
+      hint.textContent = `↵ Enter → "${exactMatch.nome}"`;
       hint.className   = 'enter-hint match';
     } else if (data.length === 1){
       hint.textContent = '↵ Enter → adicionar este produto';
       hint.className   = 'enter-hint match';
     } else {
-      hint.textContent = `${data.length} produtos encontrados`;
+      hint.textContent = `${data.length} encontrados`;
       hint.className   = 'enter-hint';
     }
 
@@ -848,9 +852,10 @@ async function importar(){
   if (!file){ toast('Selecione um arquivo', 'err'); return; }
   const fd = new FormData();
   fd.append('arquivo',    file);
-  fd.append('col_codigo', document.getElementById('colCodigo').value);
-  fd.append('col_nome',   document.getElementById('colNome').value);
-  fd.append('col_preco',  document.getElementById('colPreco').value);
+  fd.append('col_codigo',  document.getElementById('colCodigo').value);
+  fd.append('col_barras',  document.getElementById('colBarras').value);
+  fd.append('col_nome',    document.getElementById('colNome').value);
+  fd.append('col_preco',   document.getElementById('colPreco').value);
   fd.append('separador',  document.getElementById('separator').value);
   toast('Processando...');
   const r    = await fetch('/importar', {method: 'POST', body: fd});

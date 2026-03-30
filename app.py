@@ -65,9 +65,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS produtos (
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo  TEXT,
+            codigo_barras  TEXT,         
             nome    TEXT NOT NULL,
             preco   REAL NOT NULL DEFAULT 0
         );
+        -- Migração: adiciona coluna em bancos já existentes (ignora se já existe)
+        ALTER TABLE produtos ADD COLUMN codigo_barras TEXT;
         CREATE TABLE IF NOT EXISTS vendas (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             data        TEXT NOT NULL,
@@ -166,6 +169,7 @@ def importar():
     col_cod   = request.form.get('col_codigo', 'cod').strip()
     col_nome  = request.form.get('col_nome',   'produto').strip()
     col_preco = request.form.get('col_preco',  'pv').strip()
+    col_barras = request.form.get('col_barras',  'codigo de barras').strip()
     separador = request.form.get('separador',  ',')
     if separador == '\\t':
         separador = '\t'
@@ -252,6 +256,7 @@ def importar():
         i_cod   = get_idx(col_cod)
         i_nome  = get_idx(col_nome)
         i_preco = get_idx(col_preco)
+        i_barras = get_idx(col_barras)
 
         if i_nome < 0:
             return jsonify({'ok': False,
@@ -279,7 +284,11 @@ def importar():
             if i_cod >= 0 and i_cod < len(row) and row[i_cod] is not None:
                 codigo_val = limpar_codigo(row[i_cod])
 
-            produtos.append((codigo_val, nome_val, preco_val))
+            barras_val = ''
+            if i_barras >= 0 and i_barras < len(row) and row[i_barras] is not None:
+                barras_val = limpar_codigo(row[i_barras])
+
+            produtos.append((codigo_val, barras_val, nome_val, preco_val))
 
         if not produtos:
             return jsonify({'ok': False,
@@ -289,13 +298,13 @@ def importar():
         db = get_db()
         db.execute("DELETE FROM produtos")
         db.executemany(
-            "INSERT INTO produtos(codigo, nome, preco) VALUES (?, ?, ?)",
+            "INSERT INTO produtos(codigo, codigo_barras, nome, preco) VALUES (?, ?, ?, ?)",
             produtos
         )
         db.commit()
 
         preview = [
-            {'codigo': p[0], 'nome': p[1], 'preco': fmt_brl(p[2])}
+            {'codigo': p[0], 'codigo_barras': p[1], 'nome': p[2], 'preco': fmt_brl(p[3])}
             for p in produtos[:10]
         ]
         return jsonify({
@@ -316,18 +325,30 @@ def buscar():
     if not q:
         return jsonify([])
     like = f'%{q}%'
+    # Prioridade de ordenação:
+    #   0 = match exato de código interno  (ex: digitar "10" → gelo)
+    #   1 = match exato de código de barras
+    #   2 = qualquer outro match (nome, código parcial)
     rows = get_db().execute(
-        "SELECT id, codigo, nome, preco FROM produtos "
-        "WHERE nome LIKE ? OR codigo LIKE ? "
-        "ORDER BY nome LIMIT 12",
-        (like, like)
+        """SELECT id, codigo, codigo_barras, nome, preco FROM produtos
+           WHERE nome LIKE ? OR codigo LIKE ? OR codigo_barras LIKE ?
+           ORDER BY
+             CASE
+               WHEN LOWER(codigo)        = LOWER(?) THEN 0
+               WHEN LOWER(codigo_barras) = LOWER(?) THEN 1
+               ELSE 2
+             END,
+             nome
+           LIMIT 12""",
+        (like, like, like, q, q)
     ).fetchall()
     return jsonify([{
-        'id': r['id'],
-        'codigo': r['codigo'],
-        'nome': r['nome'],
-        'preco': r['preco'],
-        'preco_fmt': fmt_brl(r['preco']),
+        'id':            r['id'],
+        'codigo':        r['codigo'],
+        'codigo_barras': r['codigo_barras'],
+        'nome':          r['nome'],
+        'preco':         r['preco'],
+        'preco_fmt':     fmt_brl(r['preco']),
     } for r in rows])
 
 @app.route('/produtos/preview')
