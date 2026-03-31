@@ -106,6 +106,13 @@
   #toast.show{transform:translateY(0);opacity:1}
   #toast.err{background:var(--danger)}
 
+  /* Flash de scan — pisca verde no carrinho ao adicionar produto */
+  @keyframes scanFlash{0%{box-shadow:0 0 0 0 rgba(10,124,82,.7)}70%{box-shadow:0 0 0 12px rgba(10,124,82,0)}100%{box-shadow:0 0 0 0 rgba(10,124,82,0)}}
+  .scan-flash{animation:scanFlash .5s ease-out}
+
+  /* Contador de itens */
+  .cart-counter{font-family:var(--mono);font-size:.75rem;color:var(--muted);margin-top:4px}
+
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:4px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
   .modal-header{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
@@ -274,6 +281,7 @@
               <span class="total-label">TOTAL</span>
               <span class="total-value big" id="valTotal">R$ 0,00</span>
             </div>
+            <div class="cart-counter" id="cartCounter"></div>
           </div>
 
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center">
@@ -415,6 +423,17 @@
           <div class="empty"><div class="empty-icon">📋</div>Nenhum produto</div>
           {% endif %}
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Backup</div>
+      <div class="setting-row" style="border:none">
+        <div class="setting-info">
+          <div class="setting-label">Baixar banco de dados</div>
+          <div class="setting-desc">Salva uma cópia do arquivo <code>dados.db</code> com todos os produtos e vendas.</div>
+        </div>
+        <a href="/backup" class="btn btn-primary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center">⬇ Backup</a>
       </div>
     </div>
 
@@ -746,13 +765,21 @@ function renderCart(){
   document.getElementById('rowDesc').style.display = desc > 0 ? 'flex' : 'none';
   if (descVis) document.getElementById('descontoRow').style.display = 'block';
   bar.style.display = 'block';
+
+  // Contador de itens (unidades totais, não produtos distintos)
+  const totalItens = carrinho.reduce((s, i) => s + i.qty, 0);
+  const counter = document.getElementById('cartCounter');
+  if (counter) counter.textContent = totalItens + (totalItens === 1 ? ' item' : ' itens');
+
+  // Sincroniza com tela do cliente (sem bloquear UI)
+  pushEstadoCliente();
 }
 
 function chgQty(i, d){ carrinho[i].qty = Math.max(1, carrinho[i].qty + d); renderCart(); }
 function setQty(i, v){ const n = parseInt(v); if (!isNaN(n) && n >= 1){ carrinho[i].qty = n; renderCart(); } }
 function rmItem(i){ carrinho.splice(i, 1); renderCart(); }
 function toggleDesc(){ descVis = !descVis; renderCart(); }
-function limparCart(){ if (carrinho.length && !confirm('Limpar carrinho?')) return; carrinho = []; descVis = false; renderCart(); }
+function limparCart(){ if (carrinho.length && !confirm('Limpar carrinho?')) return; carrinho = []; descVis = false; renderCart(); pushEstadoCliente(); }
 
 // ── MODAL FINALIZAR ────────────────────────────────────────────────────────
 function abrirFinalizar(){
@@ -796,6 +823,7 @@ async function confirmarVenda(){
   if (!data.ok){ toast('Erro ao registrar venda', 'err'); return; }
   cupomAtual = data.venda;
   fecharFinalizar();
+  await pushVendaFinalizada(data.venda.total);
   carrinho = []; descVis = false; renderCart();
   toast('Venda registrada — ' + data.venda.total);
   abrirCupom(data.venda);
@@ -1015,10 +1043,6 @@ async function limparVendas(){
   carregarHistorico();
 }
 
-// Inicializa preco_atual em addCart
-const _addCartOrig = addCart;
-// preco_atual já é setado em addCart via spread — garantir que existe
-// (produtos vindos da busca têm 'preco' como number)
 function addCart(p){
   if (p.preco_atual === undefined) p = {...p, preco_atual: p.preco};
   const qty = Math.max(1, parseInt(document.getElementById('vendaQtd').value) || 1);
@@ -1032,9 +1056,117 @@ function addCart(p){
   document.getElementById('vendaQtd').value = '1';
   _ultimosResultados = [];
   renderCart();
+  flashScan();
+  beepScan();
   toast(`${qty}x ${p.nome}`);
   document.getElementById('vendaSearch').focus();
 }
+
+// ── FLASH VISUAL DE SCAN ──────────────────────────────────────────────────
+function flashScan(){
+  const el = document.getElementById('cartTable');
+  el.classList.remove('scan-flash');
+  void el.offsetWidth; // força reflow para reiniciar animação
+  el.classList.add('scan-flash');
+  setTimeout(() => el.classList.remove('scan-flash'), 600);
+}
+
+// ── SOM DE CONFIRMAÇÃO (beep via Web Audio API) ────────────────────────────
+// Só toca se o contexto de áudio já foi criado (evita erro antes de interação)
+let _audioCtx = null;
+function beepScan(){
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.type      = 'sine';
+    osc.frequency.value = 880;      // Lá5 — som curto e agradável
+    gain.gain.setValueAtTime(0.15, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.12);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 0.12);
+  } catch(e) { /* silencia se áudio não disponível */ }
+}
+
+// ── TELA DO CLIENTE ────────────────────────────────────────────────────────
+let _janelaCliente = null;
+function abrirTelaCliente(){
+  _janelaCliente = window.open('/cliente', 'AuxVarejo-Cliente',
+    'width=800,height=500,toolbar=no,menubar=no,scrollbars=no');
+  toast('Tela do cliente aberta');
+}
+
+// Envia estado atual do carrinho ao servidor para a tela do cliente buscar
+async function pushEstadoCliente(){
+  const {sub, desc, total} = calcTotais();
+  const nome_loja = document.getElementById('cfgNomeLoja')?.value || '';
+  const itens = carrinho.map(i => ({
+    nome:       i.nome,
+    quantidade: i.qty,
+    preco_unit: fmtBRL(i.preco_atual),
+    subtotal:   fmtBRL(i.preco_atual * i.qty),
+  }));
+  await fetch('/estado-carrinho', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      itens, nome_loja,
+      subtotal:    fmtBRL(sub),
+      desconto:    fmtBRL(desc),
+      total:       fmtBRL(total),
+      tem_desconto: desc > 0,
+      finalizado:  false,
+    })
+  }).catch(() => {});
+}
+
+// Notifica a tela do cliente que a venda foi finalizada
+async function pushVendaFinalizada(total){
+  await fetch('/estado-carrinho', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({itens: [], total, finalizado: true,
+                          tem_desconto: false, subtotal: total, desconto: 'R$ 0,00'})
+  }).catch(() => {});
+}
+
+// ── CAPTURA GLOBAL DE CÓDIGO DE BARRAS ────────────────────────────────────
+// Leitores de código de barras digitam muito rápido (> 8 chars em < 200ms).
+// Capturamos isso mesmo que o campo de busca não esteja focado.
+(function(){
+  let _buf = '';
+  let _t   = null;
+  const MIN_LEN  = 4;    // mínimo de chars para considerar como barcode
+  const MAX_MS   = 120;  // janela de tempo para detectar input rápido
+
+  document.addEventListener('keypress', e => {
+    // Ignora se estiver em input/textarea/select (usuário está digitando manual)
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    // Ignora teclas de controle
+    if (e.key.length !== 1) return;
+
+    _buf += e.key;
+    clearTimeout(_t);
+    _t = setTimeout(() => {
+      if (_buf.length >= MIN_LEN) {
+        // Parece um scan — injeta no campo de busca e dispara busca
+        const campo = document.getElementById('vendaSearch');
+        if (campo) {
+          campo.value = _buf;
+          buscarVenda();
+          // Ativa o AudioContext na primeira interação (necessário para beep)
+          if (!_audioCtx){
+            try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+          }
+        }
+      }
+      _buf = '';
+    }, MAX_MS);
+  });
+})();
 </script>
 </body>
 </html>

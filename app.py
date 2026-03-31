@@ -41,6 +41,10 @@ def get_secret_key():
 app = Flask(__name__, template_folder=resource_path('templates'))
 app.secret_key = get_secret_key()
 
+# Estado do carrinho compartilhado com a tela do cliente.
+_estado_cliente = {'itens': [], 'total': 'R$ 0,00', 'subtotal': 'R$ 0,00',
+                   'desconto': 'R$ 0,00', 'tem_desconto': False,
+                   'finalizado': False, 'nome_loja': ''}
 
 # ── BANCO DE DADOS ─────────────────────────────────────────────────────────
 def get_db():
@@ -677,6 +681,32 @@ def modelo_csv():
         as_attachment=True,
         download_name='modelo_produtos.csv',
     )
+
+
+# ── TELA DO CLIENTE ────────────────────────────────────────────────────────
+@app.route('/cliente')
+def tela_cliente():
+    """Tela voltada para o cliente — abrir numa segunda janela/aba."""
+    return render_template('cliente.html')
+
+@app.route('/estado-carrinho', methods=['GET'])
+def get_estado_carrinho():
+    return jsonify(_estado_cliente)
+
+@app.route('/estado-carrinho', methods=['POST'])
+def set_estado_carrinho():
+    global _estado_cliente
+    data = request.get_json()
+    _estado_cliente.update(data)
+    return jsonify({'ok': True})
+
+
+# ── BACKUP ──────────────────────────────────────────────────────────────────
+@app.route('/backup')
+def backup():
+    """Download direto do banco de dados para backup manual."""
+    nome = f"backup_auxvarejo_{date.today().strftime('%Y-%m-%d')}.db"
+    return send_file(DB_PATH, as_attachment=True, download_name=nome)
 
 
 # ── ENCERRAR ──────────────────────────────────────────────────────────────

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuxVarejo — Tela do Cliente</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:      #f0f2f5;
+    --surface: #ffffff;
+    --border:  #dde1e9;
+    --accent:  #c47f00;
+    --accent2: #0a7c52;
+    --text:    #111827;
+    --muted:   #6b7280;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER MÍNIMO */
+  header {
+    background: var(--surface);
+    border-bottom: 3px solid var(--accent);
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: .12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  #nomeLojaEl {
+    font-family: var(--sans);
+    font-size: .9rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* LAYOUT PRINCIPAL */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px 16px;
+    gap: 16px;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* ITENS DO CARRINHO */
+  .itens-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    flex: 1;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    display: flex;
+    flex-direction: column;
+  }
+  .itens-header {
+    font-family: var(--mono);
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .itens-header::before {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 1px;
+  }
+  .itens-lista {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 18px;
+    border-bottom: 1px solid rgba(221,225,233,.5);
+    gap: 16px;
+    transition: background .1s;
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-row.novo { background: rgba(10,124,82,.06); }
+  .item-nome { font-weight: 600; font-size: 1rem; }
+  .item-qtd  { font-family: var(--mono); font-size: .85rem; color: var(--muted); margin-top: 2px; }
+  .item-sub  { font-family: var(--mono); font-weight: 700; font-size: 1rem; color: var(--accent); white-space: nowrap; }
+
+  /* EMPTY */
+  .carrinho-vazio {
+    text-align: center;
+    padding: 48px 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .9rem;
+  }
+  .carrinho-vazio-icon { font-size: 2.4rem; margin-bottom: 12px; opacity: .3; }
+
+  /* TOTAL */
+  .total-card {
+    background: linear-gradient(135deg, #fffbeb, #fef9ee);
+    border: 2px solid rgba(196,127,0,.3);
+    border-radius: 6px;
+    padding: 18px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .total-info { display: flex; flex-direction: column; gap: 3px; }
+  .total-label { font-family: var(--mono); font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .total-sub-label { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+  .total-valor {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 3rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .desconto-badge {
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent2);
+    margin-top: 4px;
+  }
+
+  /* TELA DE FINALIZADO */
+  #telaFinalizado {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--accent2);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: #fff;
+    z-index: 100;
+    animation: fadeIn .4s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+  .fin-icon { font-size: 4rem; }
+  .fin-msg  { font-family: var(--sans); font-size: 2rem; font-weight: 600; }
+  .fin-total-val { font-family: var(--mono); font-size: 3rem; font-weight: 700; }
+  .fin-sub  { font-family: var(--sans); font-size: 1rem; opacity: .75; margin-top: 4px; }
+
+  /* Indicador de conexão */
+  #statusDot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc;
+    display: inline-block;
+    transition: background .3s;
+  }
+  #statusDot.ok     { background: var(--accent2); }
+  #statusDot.err    { background: #dc2626; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Aux<span style="color:var(--text);font-weight:400">Varejo</span></div>
+  <div id="nomeLojaEl"></div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <span id="statusDot"></span>
+    <span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">TELA DO CLIENTE</span>
+  </div>
+</header>
+
+<main>
+  <div class="itens-card">
+    <div class="itens-header">Itens da compra</div>
+    <div class="itens-lista" id="itensLista">
+      <div class="carrinho-vazio">
+        <div class="carrinho-vazio-icon">🛒</div>
+        Aguardando itens...
+      </div>
+    </div>
+  </div>
+
+  <div class="total-card">
+    <div class="total-info">
+      <span class="total-label">Total</span>
+      <span id="descontoBadge" class="desconto-badge" style="display:none"></span>
+    </div>
+    <div class="total-valor" id="totalValor">—</div>
+  </div>
+</main>
+
+<!-- Tela de finalização -->
+<div id="telaFinalizado">
+  <div class="fin-icon">✓</div>
+  <div class="fin-msg">Obrigado!</div>
+  <div class="fin-total-val" id="finTotalVal"></div>
+  <div class="fin-sub">Volte sempre!</div>
+</div>
+
+<script>
+const POLL_MS = 800;   // intervalo de polling em ms
+let _ultimoEstado = null;
+let _finTimer = null;
+
+async function buscarEstado(){
+  try {
+    const r = await fetch('/estado-carrinho');
+    if (!r.ok) throw new Error();
+    const estado = await r.json();
+    document.getElementById('statusDot').className = 'ok';
+    aplicarEstado(estado);
+  } catch {
+    document.getElementById('statusDot').className = 'err';
+  }
+}
+
+function aplicarEstado(estado){
+  // Nome da loja
+  if (estado.nome_loja){
+    document.getElementById('nomeLojaEl').textContent = estado.nome_loja;
+    document.title = estado.nome_loja + ' — Tela do Cliente';
+  }
+
+  // Venda finalizada → tela de obrigado por 4s
+  if (estado.finalizado){
+    mostrarFinalizado(estado.total);
+    return;
+  }
+
+  // Esconde tela de finalizado se ainda estiver visível
+  const fin = document.getElementById('telaFinalizado');
+  if (fin.style.display !== 'none' && !_finTimer) fin.style.display = 'none';
+
+  // Itens
+  const lista = document.getElementById('itensLista');
+  if (!estado.itens || !estado.itens.length){
+    lista.innerHTML = '<div class="carrinho-vazio"><div class="carrinho-vazio-icon">🛒</div>Aguardando itens...</div>';
+    document.getElementById('totalValor').textContent = '—';
+    document.getElementById('descontoBadge').style.display = 'none';
+    return;
+  }
+
+  // Detecta item novo (último item adicionado) para highlight
+  const prevLen = _ultimoEstado?.itens?.length || 0;
+  const currLen = estado.itens.length;
+  _ultimoEstado = estado;
+
+  lista.innerHTML = estado.itens.map((it, i) => `
+    <div class="item-row${i === currLen - 1 && currLen > prevLen ? ' novo' : ''}">
+      <div>
+        <div class="item-nome">${esc(it.nome)}</div>
+        <div class="item-qtd">${it.quantidade} × ${esc(it.preco_unit)}</div>
+      </div>
+      <div class="item-sub">${esc(it.subtotal)}</div>
+    </div>`).join('');
+
+  // Scroll para o último item
+  lista.scrollTop = lista.scrollHeight;
+
+  // Total
+  document.getElementById('totalValor').textContent = estado.total;
+
+  // Desconto
+  const badge = document.getElementById('descontoBadge');
+  if (estado.tem_desconto){
+    badge.textContent = 'Sub: ' + estado.subtotal + ' · Desc: −' + estado.desconto;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function mostrarFinalizado(total){
+  clearTimeout(_finTimer);
+  document.getElementById('finTotalVal').textContent = total;
+  const fin = document.getElementById('telaFinalizado');
+  fin.style.display = 'flex';
+  // Volta para tela normal após 4s
+  _finTimer = setTimeout(() => {
+    fin.style.display = 'none';
+    _finTimer = null;
+    _ultimoEstado = null;
+    document.getElementById('totalValor').textContent = '—';
+    document.getElementById('itensLista').innerHTML =
+      '<div class="carrinho-vazio"><div class="carrinho-vazio-icon">🛒</div>Aguardando itens...</div>';
+  }, 4000);
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Inicia polling
+buscarEstado();
+setInterval(buscarEstado, POLL_MS);
+</script>
+</body>
+</html>
