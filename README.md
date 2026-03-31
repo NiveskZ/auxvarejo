@@ -105,3 +105,8 @@ O `.exe` fica disponível em:
 
 **Colunas não encontradas ao importar**
 → O sistema mostra quais cabeçalhos detectou. Copie o nome exato para o campo correspondente na tela de importação.
+
+## Licença
+
+Este projeto está licenciado sob a GNU Affero General Public License v3.0 (AGPL-3.0).  
+Consulte o arquivo [LICENSE](./LICENSE) para mais detalhes.
