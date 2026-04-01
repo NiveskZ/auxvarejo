@@ -143,6 +143,11 @@
   .split-row input{width:110px;font-size:.88rem;padding:7px 10px;text-align:right;font-family:var(--mono)}
   .split-row input:disabled{background:#f8f9fb;color:var(--accent);font-weight:700;border-style:dashed}
   .split-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .split-troco-row{display:flex;align-items:center;gap:6px;margin-top:-4px;margin-bottom:6px;padding:6px 10px;background:rgba(10,124,82,.05);border:1px solid rgba(10,124,82,.15);border-radius:3px;font-family:var(--mono);font-size:.78rem}
+  .split-troco-row label{font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap;margin-bottom:0}
+  .split-troco-row input{flex:1;font-size:.82rem;padding:4px 8px;max-width:90px;text-align:right}
+  .split-troco-val{font-weight:700;color:var(--accent2);white-space:nowrap;min-width:70px;text-align:right}
+  .split-troco-val.neg{color:var(--danger)}
 
   @media(max-width:700px){.fin-grid{grid-template-columns:1fr}.fin-left{border-right:none;border-bottom:1px solid var(--border);max-height:220px}}
   .fin-total{font-family:var(--mono);font-weight:700;font-size:2.4rem;color:var(--accent);text-align:center;padding:16px 0 4px}
@@ -262,7 +267,7 @@
           <div class="enter-hint" id="enterHint"></div>
           <div id="vendaSugestoes" style="margin-top:8px"></div>
           <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
-            <label style="white-space:nowrap;font-size:.72rem">Pagamento <kbd style="opacity:.6">F3</kbd></label>
+            <label style="white-space:nowrap;font-size:.72rem">Pagamento <kbd style="opacity:.6">F7</kbd></label>
             <select id="vendaPagDropdown" onchange="pagSel=this.value;sincVendaPagDropdown()" style="flex:1;font-size:.82rem;padding:7px 10px">
               <option value="Dinheiro">💵 Dinheiro</option>
               <option value="Cartão Débito">💳 Débito</option>
@@ -275,7 +280,7 @@
             </select>
           </div>
           <div class="atalhos" style="margin-top:6px">
-            <kbd>F1</kbd> Qtd &nbsp; <kbd>F2</kbd> Finalizar &nbsp; <kbd>F3</kbd> Pagamento &nbsp; <kbd>ESC</kbd> Fechar
+            <kbd>F1</kbd> Qtd &nbsp; <kbd>F2</kbd> Finalizar &nbsp; <kbd>F3</kbd> Buscar &nbsp; <kbd>F7</kbd> Pagamento &nbsp; <kbd>ESC</kbd> Fechar
           </div>
         </div>
       </div>
@@ -529,6 +534,8 @@
               <div class="split-pill" onclick="setSplitCount(2,this)">2</div>
               <div class="split-pill" onclick="setSplitCount(3,this)">3</div>
               <div class="split-pill" onclick="setSplitCount(4,this)">4</div>
+              <div class="split-pill" onclick="setSplitCount(5,this)">5</div>
+              <div class="split-pill" onclick="setSplitCount(6,this)">6</div>
             </div>
           </div>
 
@@ -626,7 +633,8 @@ document.addEventListener('keydown', e => {
   if (modal_finalizar_aberto || modal_cupom_aberto) return;
   if (document.getElementById('tab-venda').classList.contains('active')) {
     if (e.key === 'F1') { e.preventDefault(); document.getElementById('vendaQtd').focus(); document.getElementById('vendaQtd').select(); }
-    if (e.key === 'F3') { e.preventDefault(); document.getElementById('vendaPagDropdown').focus(); }
+    if (e.key === 'F3') { e.preventDefault(); document.getElementById('vendaSearch').focus(); }
+    if (e.key === 'F7') { e.preventDefault(); document.getElementById('vendaPagDropdown').focus(); }
   }
 });
 
@@ -861,7 +869,7 @@ const PAG_OPTS = [
 ];
 
 let _splitCount = 1;
-let _splits = []; // [{metodo, valor}]
+let _splits = []; // [{metodo, valor, fixado, recebido}]
 
 // Sincroniza o dropdown da tela de venda → pagSel
 function sincVendaPagDropdown(){
@@ -897,7 +905,7 @@ function abrirFinalizar(){
   // Painel direito — reset para 1 pagamento com o método do dropdown
   _splitCount = 1;
   document.querySelectorAll('.split-pill').forEach((p,i) => p.classList.toggle('selected', i===0));
-  _splits = [{metodo: pagSel, valor: total}];
+  _splits = [{metodo: pagSel, valor: total, fixado: false, recebido: ''}];
   renderSplitRows();
 
   document.getElementById('modalFinalizar').style.display = 'flex';
@@ -913,94 +921,125 @@ function setSplitCount(n, el){
   _splitCount = n;
   document.querySelectorAll('.split-pill').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
-  // Preserva métodos já escolhidos, ajusta array
-  while (_splits.length < n) _splits.push({metodo: 'Dinheiro', valor: 0});
+  while (_splits.length < n) _splits.push({metodo: 'Dinheiro', valor: 0, fixado: false, recebido: ''});
   _splits = _splits.slice(0, n);
-  redistribuirValores();
+  // Reseta fixados e redistribui igualmente
+  _splits.forEach(s => { s.fixado = false; });
+  redistribuirLivres();
   renderSplitRows();
 }
 
-// Distribui o total igualmente ao mudar a contagem
-function redistribuirValores(){
+// Redistribui o restante igualmente entre os não-fixados
+function redistribuirLivres(){
   if (_splitCount === 1){
     _splits[0].valor = _totalAtual;
+    _splits[0].fixado = false;
     return;
   }
-  const parte = Math.floor((_totalAtual / _splitCount) * 100) / 100;
-  for (let i = 0; i < _splitCount - 1; i++) _splits[i].valor = parte;
-  // Último recebe o restante (arredondamento)
-  _splits[_splitCount-1].valor = Math.round((_totalAtual - parte * (_splitCount-1)) * 100) / 100;
+  const somaFixados = _splits.filter(s => s.fixado).reduce((a, s) => a + s.valor, 0);
+  const livres = _splits.filter(s => !s.fixado);
+  const restante = Math.max(0, _totalAtual - somaFixados);
+  if (!livres.length) return;
+  const parte = Math.floor((restante / livres.length) * 100) / 100;
+  livres.forEach((s, li) => {
+    s.valor = li < livres.length - 1 ? parte
+              : Math.round((restante - parte * (livres.length - 1)) * 100) / 100;
+  });
 }
 
 // Renderiza linhas de split
 function renderSplitRows(){
   const container = document.getElementById('splitRows');
-  const optHtml   = PAG_OPTS.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
 
-  container.innerHTML = _splits.map((s, i) => {
-    const isLast   = i === _splitCount - 1;
-    const isUnico  = _splitCount === 1;
-    return `<div class="split-row">
-      <select onchange="setSplitMetodo(${i},this.value)">
-        ${PAG_OPTS.map(o => `<option value="${o.v}"${o.v===s.metodo?' selected':''}>${o.l}</option>`).join('')}
-      </select>
-      <input type="number" step="0.01" min="0"
-             value="${s.valor.toFixed(2)}"
-             ${isLast && !isUnico ? 'disabled' : ''}
-             placeholder="0,00"
-             oninput="setSplitValor(${i},this.value)"
-             ${isUnico ? 'id="splitValorUnico"' : ''}>
-    </div>`;
-  }).join('');
+  let html = '';
+  _splits.forEach((s, i) => {
+    const isUnico = _splitCount === 1;
+    // Um split só é editável se não for o único não-fixado restante
+    // Na prática: se há mais de 1 livre, todos são editáveis (o cálculo cuida do resto)
+    // Se só há 1 livre (o atual), ele recebe o restante — travar não é necessário,
+    // mas evitar que o usuário entre um valor maior que o restante ainda é tratado.
+    html += `<div>
+      <div class="split-row">
+        <select onchange="setSplitMetodo(${i},this.value)">
+          ${PAG_OPTS.map(o => `<option value="${o.v}"${o.v===s.metodo?' selected':''}>${o.l}</option>`).join('')}
+        </select>
+        <input type="number" step="0.01" min="0"
+               id="splitInput${i}"
+               value="${s.valor.toFixed(2)}"
+               placeholder="0,00"
+               oninput="setSplitValor(${i},this.value)">
+      </div>`;
+    // Troco inline para cada linha em dinheiro (múltiplo ou único)
+    if (s.metodo === 'Dinheiro'){
+      const troco = (parseFloat(s.recebido) || 0) - s.valor;
+      const trocoStr = (parseFloat(s.recebido) || 0) > 0
+        ? (troco >= 0 ? fmtBRL(troco) : '<span style="color:var(--danger)">—</span>') : '—';
+      html += `<div class="split-troco-row">
+        <label>Recebido</label>
+        <input type="number" step="0.01" min="0" placeholder="0,00"
+               value="${s.recebido}"
+               oninput="setSplitRecebido(${i},this.value)">
+        <span style="color:var(--muted);font-size:.75rem">troco</span>
+        <span class="split-troco-val${troco < 0 && s.recebido ? ' neg' : ''}" id="splitTroco${i}">${trocoStr}</span>
+      </div>`;
+    }
+    html += '</div>';
+  });
+  container.innerHTML = html;
 
-  // Troco só aparece no pagamento único + Dinheiro
-  const trocoBox = document.getElementById('trocoBox');
-  const mostrarTroco = _splitCount === 1 && _splits[0]?.metodo === 'Dinheiro';
-  trocoBox.style.display = mostrarTroco ? 'block' : 'none';
-  if (mostrarTroco){
-    document.getElementById('trocoRecebido').value = '';
-    document.getElementById('trocoVal').textContent = '—';
-  }
+  // Caixa de troco único (pagamento 1x dinheiro — mantida por compatibilidade mas ocultada aqui)
+  document.getElementById('trocoBox').style.display = 'none';
 }
 
 function setSplitMetodo(i, metodo){
   _splits[i].metodo = metodo;
-  // Atualiza pagSel se for único (sincroniza com dropdown da venda)
+  _splits[i].recebido = '';
   if (_splitCount === 1){
     pagSel = metodo;
     const dd = document.getElementById('vendaPagDropdown');
     if (dd) dd.value = metodo;
   }
-  // Rerender só para atualizar troco
-  const trocoBox = document.getElementById('trocoBox');
-  const mostrarTroco = _splitCount === 1 && metodo === 'Dinheiro';
-  trocoBox.style.display = mostrarTroco ? 'block' : 'none';
+  renderSplitRows();
 }
 
 function setSplitValor(i, val){
   const n = parseFloat(val) || 0;
-  // Não deixa ultrapassar o total
-  _splits[i].valor = Math.min(n, _totalAtual);
-  // Recalcula o último (restante)
-  if (_splitCount > 1){
-    const somaOutros = _splits.slice(0, _splitCount-1).reduce((s,x) => s + x.valor, 0);
-    const restante = Math.round((_totalAtual - somaOutros) * 100) / 100;
-    _splits[_splitCount-1].valor = Math.max(0, restante);
-    // Atualiza campo desabilitado do último
-    const rows = document.querySelectorAll('#splitRows .split-row');
-    const lastInput = rows[_splitCount-1]?.querySelector('input');
-    if (lastInput) lastInput.value = _splits[_splitCount-1].valor.toFixed(2);
+  const maxPermitido = _totalAtual - _splits.filter((s,j) => s.fixado && j !== i).reduce((a,s) => a+s.valor, 0);
+  _splits[i].valor  = Math.min(Math.max(0, n), maxPermitido);
+  _splits[i].fixado = true;
+
+  // Todos os outros não-fixados recebem o restante igualmente
+  redistribuirLivres();
+
+  // Atualiza campos de valor dos livres sem rerender tudo (mantém foco)
+  _splits.forEach((s, j) => {
+    if (j === i) return;
+    const inp = document.getElementById('splitInput' + j);
+    if (inp && !s.fixado) inp.value = s.valor.toFixed(2);
+    // Se fixado e valor mudou por overflow, atualizar também
+    if (inp && s.fixado) inp.value = s.valor.toFixed(2);
+  });
+}
+
+function setSplitRecebido(i, val){
+  _splits[i].recebido = val;
+  const s     = _splits[i];
+  const rec   = parseFloat(val) || 0;
+  const troco = rec - s.valor;
+  const el    = document.getElementById('splitTroco' + i);
+  if (!el) return;
+  if (!val || rec === 0){ el.innerHTML = '—'; el.className = 'split-troco-val'; return; }
+  if (troco >= 0){
+    el.innerHTML   = fmtBRL(troco);
+    el.className   = 'split-troco-val';
+  } else {
+    el.innerHTML   = '—';
+    el.className   = 'split-troco-val neg';
   }
-  calcularTroco();
 }
 
 function calcularTroco(){
-  const recebido = parseFloat(document.getElementById('trocoRecebido')?.value) || 0;
-  const troco    = recebido - _totalAtual;
-  const el = document.getElementById('trocoVal');
-  if (!el) return;
-  el.textContent = troco >= 0 ? fmtBRL(troco) : '—';
-  el.style.color = troco >= 0 ? 'var(--accent2)' : 'var(--danger)';
+  // Mantida por compatibilidade — sem uso direto agora
 }
 
 // Monta string de pagamento para salvar
