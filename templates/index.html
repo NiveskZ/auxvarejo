@@ -120,7 +120,31 @@
   .modal-body{padding:20px}.modal-footer{padding:13px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
   .close-btn{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
 
-  #modalFinalizar .modal{max-width:520px}
+  /* Modal de finalizar — dois painéis */
+  #modalFinalizar .modal{max-width:860px;width:95%}
+  .fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:380px}
+  .fin-left{border-right:1px solid var(--border);padding:18px;display:flex;flex-direction:column;gap:0;overflow:hidden}
+  .fin-right{padding:18px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+  .fin-itens-lista{flex:1;overflow-y:auto;margin:8px 0}
+  .fin-item-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(221,225,233,.5);gap:10px;font-size:.88rem}
+  .fin-item-row:last-child{border-bottom:none}
+  .fin-item-nome{font-weight:600;flex:1}
+  .fin-item-qtd{color:var(--muted);font-size:.8rem}
+  .fin-item-sub{font-family:var(--mono);font-weight:700;color:var(--accent);white-space:nowrap}
+  .fin-total-wrap{background:linear-gradient(135deg,#fffbeb,#fef9ee);border:1px solid rgba(196,127,0,.3);border-radius:4px;padding:12px 14px;margin-top:auto}
+
+  /* Split de pagamento */
+  .split-count-pills{display:flex;gap:6px;margin-bottom:12px}
+  .split-pill{background:var(--bg);border:2px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:.85rem;font-weight:700;padding:6px 16px;transition:all .12s;user-select:none;text-align:center}
+  .split-pill:hover{border-color:var(--accent);color:var(--accent)}
+  .split-pill.selected{background:#fef3c7;border-color:var(--accent);color:var(--accent)}
+  .split-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .split-row select{flex:1;font-size:.82rem;padding:7px 10px}
+  .split-row input{width:110px;font-size:.88rem;padding:7px 10px;text-align:right;font-family:var(--mono)}
+  .split-row input:disabled{background:#f8f9fb;color:var(--accent);font-weight:700;border-style:dashed}
+  .split-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+
+  @media(max-width:700px){.fin-grid{grid-template-columns:1fr}.fin-left{border-right:none;border-bottom:1px solid var(--border);max-height:220px}}
   .fin-total{font-family:var(--mono);font-weight:700;font-size:2.4rem;color:var(--accent);text-align:center;padding:16px 0 4px}
   .fin-label{font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;text-align:center;margin-bottom:16px}
   .fin-pag-titulo{font-size:.8rem;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
@@ -237,8 +261,21 @@
           </div>
           <div class="enter-hint" id="enterHint"></div>
           <div id="vendaSugestoes" style="margin-top:8px"></div>
-          <div class="atalhos">
-            <kbd>F1</kbd> Qtd &nbsp; <kbd>F2</kbd> Finalizar &nbsp; <kbd>F3</kbd> Buscar &nbsp; <kbd>ESC</kbd> Fechar
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <label style="white-space:nowrap;font-size:.72rem">Pagamento <kbd style="opacity:.6">F3</kbd></label>
+            <select id="vendaPagDropdown" onchange="pagSel=this.value;sincVendaPagDropdown()" style="flex:1;font-size:.82rem;padding:7px 10px">
+              <option value="Dinheiro">💵 Dinheiro</option>
+              <option value="Cartão Débito">💳 Débito</option>
+              <option value="Cartão Crédito">💳 Crédito</option>
+              <option value="PIX">⚡ PIX</option>
+              <option value="Alimentação/Refeição">🍽 Alimentação/Refeição</option>
+              <option value="Depósito PIX">🏦 Depósito PIX</option>
+              <option value="Fiado">📋 Fiado</option>
+              <option value="Outro">… Outro</option>
+            </select>
+          </div>
+          <div class="atalhos" style="margin-top:6px">
+            <kbd>F1</kbd> Qtd &nbsp; <kbd>F2</kbd> Finalizar &nbsp; <kbd>F3</kbd> Pagamento &nbsp; <kbd>ESC</kbd> Fechar
           </div>
         </div>
       </div>
@@ -322,8 +359,8 @@
           <input type="text" id="filtroData" placeholder="Ex: 30/03/2025" oninput="carregarHistorico()">
         </div>
         <div class="col" style="min-width:90px">
-          <label>Hora (HH)</label>
-          <input type="text" id="filtroHora" placeholder="Ex: 14" oninput="carregarHistorico()" maxlength="5">
+          <label>Hora (HH:MM)</label>
+          <input type="text" id="filtroHora" placeholder="Ex: 14:30" oninput="carregarHistorico()" maxlength="5">
         </div>
         <div class="col flex1">
           <label>Pagamento</label>
@@ -458,30 +495,60 @@
       <h3>Finalizar Venda</h3>
       <button class="close-btn" onclick="fecharFinalizar()">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="fin-total" id="finTotal">R$ 0,00</div>
-      <div class="fin-label">Total a pagar</div>
+    <div class="modal-body" style="padding:0">
+      <div class="fin-grid">
 
-      <div class="fin-pag-titulo">Forma de Pagamento</div>
-      <div class="fin-pills">
-        <div class="fin-pill selected" onclick="selPag(this,'Dinheiro')">💵 Dinheiro</div>
-        <div class="fin-pill" onclick="selPag(this,'Cartão Débito')">💳 Débito</div>
-        <div class="fin-pill" onclick="selPag(this,'Cartão Crédito')">💳 Crédito</div>
-        <div class="fin-pill" onclick="selPag(this,'PIX')">⚡ PIX</div>
-        <div class="fin-pill" onclick="selPag(this,'Alimentação/Refeição')">🍽 Alimentação/Refeição</div>
-        <div class="fin-pill" onclick="selPag(this,'Depósito PIX')">🏦 Depósito PIX</div>
-        <div class="fin-pill" onclick="selPag(this,'Fiado')">📋 Fiado</div>
-        <div class="fin-pill" onclick="selPag(this,'Outro')">… Outro</div>
-      </div>
+        <!-- Painel esquerdo: itens + total -->
+        <div class="fin-left">
+          <div class="card-title" style="margin-bottom:8px">Itens da compra</div>
+          <div class="fin-itens-lista" id="finItensList"></div>
+          <div class="fin-total-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Subtotal</span>
+              <span style="font-family:var(--mono);font-weight:600;color:var(--muted)" id="finSubtotal"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center" id="finDescRow" style="display:none">
+              <span style="font-family:var(--mono);font-size:.7rem;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em">Desconto</span>
+              <span style="font-family:var(--mono);font-weight:600;color:var(--accent2)" id="finDesconto"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;border-top:1px solid rgba(196,127,0,.2);padding-top:8px">
+              <span style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">TOTAL</span>
+              <span style="font-family:var(--mono);font-weight:700;font-size:1.8rem;color:var(--accent)" id="finTotal">R$ 0,00</span>
+            </div>
+          </div>
+        </div>
 
-      <!-- Troco (só aparece no Dinheiro) -->
-      <div class="troco-box" id="trocoBox">
-        <label>Valor recebido (R$)</label>
-        <input type="number" id="trocoRecebido" min="0" step="0.01" placeholder="0,00"
-               oninput="calcularTroco()" style="margin-top:6px;font-size:1.1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-          <span style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Troco</span>
-          <div class="troco-val" id="trocoVal">—</div>
+        <!-- Painel direito: pagamento + split + troco -->
+        <div class="fin-right">
+
+          <!-- Quantas pessoas/formas -->
+          <div>
+            <div class="split-label">Dividir entre</div>
+            <div class="split-count-pills" id="splitCountPills">
+              <div class="split-pill selected" onclick="setSplitCount(1,this)">1</div>
+              <div class="split-pill" onclick="setSplitCount(2,this)">2</div>
+              <div class="split-pill" onclick="setSplitCount(3,this)">3</div>
+              <div class="split-pill" onclick="setSplitCount(4,this)">4</div>
+            </div>
+          </div>
+
+          <!-- Linhas de pagamento -->
+          <div>
+            <div class="split-label">Forma de pagamento</div>
+            <div id="splitRows"></div>
+          </div>
+
+          <!-- Troco (só 1 pagamento + Dinheiro) -->
+          <div class="troco-box" id="trocoBox" style="display:none">
+            <label>Valor recebido (R$)</label>
+            <input type="number" id="trocoRecebido" min="0" step="0.01" placeholder="0,00"
+                   oninput="calcularTroco()" style="margin-top:6px;font-size:1.1rem;width:100%">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+              <span style="font-family:var(--mono);font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Troco</span>
+              <div class="troco-val" id="trocoVal">—</div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -559,7 +626,7 @@ document.addEventListener('keydown', e => {
   if (modal_finalizar_aberto || modal_cupom_aberto) return;
   if (document.getElementById('tab-venda').classList.contains('active')) {
     if (e.key === 'F1') { e.preventDefault(); document.getElementById('vendaQtd').focus(); document.getElementById('vendaQtd').select(); }
-    if (e.key === 'F3') { e.preventDefault(); document.getElementById('vendaSearch').focus(); }
+    if (e.key === 'F3') { e.preventDefault(); document.getElementById('vendaPagDropdown').focus(); }
   }
 });
 
@@ -782,43 +849,182 @@ function toggleDesc(){ descVis = !descVis; renderCart(); }
 function limparCart(){ if (carrinho.length && !confirm('Limpar carrinho?')) return; carrinho = []; descVis = false; renderCart(); pushEstadoCliente(); }
 
 // ── MODAL FINALIZAR ────────────────────────────────────────────────────────
+const PAG_OPTS = [
+  {v:'Dinheiro',           l:'💵 Dinheiro'},
+  {v:'Cartão Débito',      l:'💳 Débito'},
+  {v:'Cartão Crédito',     l:'💳 Crédito'},
+  {v:'PIX',                l:'⚡ PIX'},
+  {v:'Alimentação/Refeição',l:'🍽 Aliment./Refeição'},
+  {v:'Depósito PIX',       l:'🏦 Depósito PIX'},
+  {v:'Fiado',              l:'📋 Fiado'},
+  {v:'Outro',              l:'… Outro'},
+];
+
+let _splitCount = 1;
+let _splits = []; // [{metodo, valor}]
+
+// Sincroniza o dropdown da tela de venda → pagSel
+function sincVendaPagDropdown(){
+  pagSel = document.getElementById('vendaPagDropdown').value;
+}
+
 function abrirFinalizar(){
   if (!carrinho.length){ toast('Carrinho vazio', 'err'); return; }
-  const {total} = calcTotais();
+  const {sub, desc, total} = calcTotais();
   _totalAtual = total;
-  document.getElementById('finTotal').textContent = fmtBRL(total);
-  document.querySelectorAll('.fin-pill').forEach(p => p.classList.remove('selected'));
-  document.querySelector('.fin-pill').classList.add('selected');
-  pagSel = 'Dinheiro';
-  document.getElementById('trocoBox').style.display = 'block';
-  document.getElementById('trocoRecebido').value = '';
-  document.getElementById('trocoVal').textContent = '—';
+
+  // Painel esquerdo — itens
+  const finList = document.getElementById('finItensList');
+  finList.innerHTML = carrinho.map(it => `
+    <div class="fin-item-row">
+      <div>
+        <div class="fin-item-nome">${esc(it.nome)}</div>
+        <div class="fin-item-qtd">${it.qty} × ${fmtBRL(it.preco_atual)}</div>
+      </div>
+      <div class="fin-item-sub">${fmtBRL(it.preco_atual * it.qty)}</div>
+    </div>`).join('');
+
+  document.getElementById('finSubtotal').textContent = fmtBRL(sub);
+  document.getElementById('finTotal').textContent    = fmtBRL(total);
+  const descRow = document.getElementById('finDescRow');
+  if (desc > 0){
+    document.getElementById('finDesconto').textContent = '− ' + fmtBRL(desc);
+    descRow.style.display = 'flex';
+  } else {
+    descRow.style.display = 'none';
+  }
+
+  // Painel direito — reset para 1 pagamento com o método do dropdown
+  _splitCount = 1;
+  document.querySelectorAll('.split-pill').forEach((p,i) => p.classList.toggle('selected', i===0));
+  _splits = [{metodo: pagSel, valor: total}];
+  renderSplitRows();
+
   document.getElementById('modalFinalizar').style.display = 'flex';
-  setTimeout(() => document.getElementById('trocoRecebido').focus(), 100);
+
+  // Foca troco se for dinheiro
+  if (pagSel === 'Dinheiro')
+    setTimeout(() => document.getElementById('trocoRecebido')?.focus(), 120);
 }
 function fecharFinalizar(){ document.getElementById('modalFinalizar').style.display = 'none'; }
 
-function selPag(el, nome){
-  document.querySelectorAll('.fin-pill').forEach(p => p.classList.remove('selected'));
+// Muda quantidade de pessoas/formas
+function setSplitCount(n, el){
+  _splitCount = n;
+  document.querySelectorAll('.split-pill').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
-  pagSel = nome;
+  // Preserva métodos já escolhidos, ajusta array
+  while (_splits.length < n) _splits.push({metodo: 'Dinheiro', valor: 0});
+  _splits = _splits.slice(0, n);
+  redistribuirValores();
+  renderSplitRows();
+}
+
+// Distribui o total igualmente ao mudar a contagem
+function redistribuirValores(){
+  if (_splitCount === 1){
+    _splits[0].valor = _totalAtual;
+    return;
+  }
+  const parte = Math.floor((_totalAtual / _splitCount) * 100) / 100;
+  for (let i = 0; i < _splitCount - 1; i++) _splits[i].valor = parte;
+  // Último recebe o restante (arredondamento)
+  _splits[_splitCount-1].valor = Math.round((_totalAtual - parte * (_splitCount-1)) * 100) / 100;
+}
+
+// Renderiza linhas de split
+function renderSplitRows(){
+  const container = document.getElementById('splitRows');
+  const optHtml   = PAG_OPTS.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+
+  container.innerHTML = _splits.map((s, i) => {
+    const isLast   = i === _splitCount - 1;
+    const isUnico  = _splitCount === 1;
+    return `<div class="split-row">
+      <select onchange="setSplitMetodo(${i},this.value)">
+        ${PAG_OPTS.map(o => `<option value="${o.v}"${o.v===s.metodo?' selected':''}>${o.l}</option>`).join('')}
+      </select>
+      <input type="number" step="0.01" min="0"
+             value="${s.valor.toFixed(2)}"
+             ${isLast && !isUnico ? 'disabled' : ''}
+             placeholder="0,00"
+             oninput="setSplitValor(${i},this.value)"
+             ${isUnico ? 'id="splitValorUnico"' : ''}>
+    </div>`;
+  }).join('');
+
+  // Troco só aparece no pagamento único + Dinheiro
   const trocoBox = document.getElementById('trocoBox');
-  trocoBox.style.display = nome === 'Dinheiro' ? 'block' : 'none';
-  if (nome === 'Dinheiro') document.getElementById('trocoRecebido').focus();
+  const mostrarTroco = _splitCount === 1 && _splits[0]?.metodo === 'Dinheiro';
+  trocoBox.style.display = mostrarTroco ? 'block' : 'none';
+  if (mostrarTroco){
+    document.getElementById('trocoRecebido').value = '';
+    document.getElementById('trocoVal').textContent = '—';
+  }
+}
+
+function setSplitMetodo(i, metodo){
+  _splits[i].metodo = metodo;
+  // Atualiza pagSel se for único (sincroniza com dropdown da venda)
+  if (_splitCount === 1){
+    pagSel = metodo;
+    const dd = document.getElementById('vendaPagDropdown');
+    if (dd) dd.value = metodo;
+  }
+  // Rerender só para atualizar troco
+  const trocoBox = document.getElementById('trocoBox');
+  const mostrarTroco = _splitCount === 1 && metodo === 'Dinheiro';
+  trocoBox.style.display = mostrarTroco ? 'block' : 'none';
+}
+
+function setSplitValor(i, val){
+  const n = parseFloat(val) || 0;
+  // Não deixa ultrapassar o total
+  _splits[i].valor = Math.min(n, _totalAtual);
+  // Recalcula o último (restante)
+  if (_splitCount > 1){
+    const somaOutros = _splits.slice(0, _splitCount-1).reduce((s,x) => s + x.valor, 0);
+    const restante = Math.round((_totalAtual - somaOutros) * 100) / 100;
+    _splits[_splitCount-1].valor = Math.max(0, restante);
+    // Atualiza campo desabilitado do último
+    const rows = document.querySelectorAll('#splitRows .split-row');
+    const lastInput = rows[_splitCount-1]?.querySelector('input');
+    if (lastInput) lastInput.value = _splits[_splitCount-1].valor.toFixed(2);
+  }
+  calcularTroco();
 }
 
 function calcularTroco(){
-  const recebido = parseFloat(document.getElementById('trocoRecebido').value) || 0;
+  const recebido = parseFloat(document.getElementById('trocoRecebido')?.value) || 0;
   const troco    = recebido - _totalAtual;
-  document.getElementById('trocoVal').textContent = troco >= 0 ? fmtBRL(troco) : '—';
-  document.getElementById('trocoVal').style.color = troco >= 0 ? 'var(--accent2)' : 'var(--danger)';
+  const el = document.getElementById('trocoVal');
+  if (!el) return;
+  el.textContent = troco >= 0 ? fmtBRL(troco) : '—';
+  el.style.color = troco >= 0 ? 'var(--accent2)' : 'var(--danger)';
+}
+
+// Monta string de pagamento para salvar
+function montarPagamento(){
+  if (_splitCount === 1) return _splits[0].metodo;
+  // Ex: "Débito R$15,00 + PIX R$25,00"
+  return _splits.map(s => `${s.metodo} ${fmtBRL(s.valor)}`).join(' + ');
 }
 
 async function confirmarVenda(){
   const {sub, desc, total} = calcTotais();
+
+  // Valida splits
+  if (_splitCount > 1){
+    const soma = _splits.reduce((s,x) => s + x.valor, 0);
+    if (Math.abs(soma - total) > 0.02){
+      toast('A soma dos pagamentos não fecha o total', 'err'); return;
+    }
+  }
+
+  const pagamento = montarPagamento();
   const data = await api('/venda', 'POST', {
     itens:     carrinho.map(i => ({codigo: i.codigo || '', nome: i.nome, preco: i.preco_atual, qty: i.qty})),
-    pagamento: pagSel, subtotal: sub, desconto: desc, total,
+    pagamento, subtotal: sub, desconto: desc, total,
   });
   if (!data.ok){ toast('Erro ao registrar venda', 'err'); return; }
   cupomAtual = data.venda;
