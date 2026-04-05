@@ -446,6 +446,7 @@
         </div>
         <div class="col flex1"><label>Coluna código</label><input type="text" id="colCodigo" value="cod"></div>
         <div class="col flex1"><label>Coluna cód. barras</label><input type="text" id="colBarras" value="codigo de barras"></div>
+        <div class="col flex1"><label>Coluna cód. interno</label><input type="text" id="colBarras2" value="cod.interno"></div>
         <div class="col flex1"><label>Coluna nome</label><input type="text" id="colNome" value="produto"></div>
         <div class="col flex1"><label>Coluna preço</label><input type="text" id="colPreco" value="pv"></div>
       </div>
@@ -704,7 +705,8 @@ function buscarVenda(){
     const qL = q.toLowerCase();
     const exactMatch = data.find(p =>
       String(p.codigo).toLowerCase() === qL ||
-      String(p.codigo_barras || '').toLowerCase() === qL
+      String(p.codigo_barras || '').toLowerCase() === qL ||
+      String(p.codigo_barras2 || '').toLowerCase() === qL
     );
     if (exactMatch){
       hint.textContent = `↵ Enter → "${exactMatch.nome}"`; hint.className = 'enter-hint match';
@@ -725,14 +727,24 @@ function buscarVenda(){
   }, 180);
 }
 
-function vendaKeyDown(e){
+async function vendaKeyDown(e){
   if (e.key !== 'Enter') return;
   e.preventDefault();
+  const q = document.getElementById('vendaSearch').value.trim();
+  if (!q) return;
+  // Leitor de código de barras envia Enter antes do debounce de 180ms completar
+  if (!_ultimosResultados.length) {
+    clearTimeout(_bv);
+    const data = await (await fetch('/buscar?q=' + encodeURIComponent(q))).json();
+    _ultimosResultados = data;
+    data.forEach(p => _prodMap[String(p.id)] = p);
+  }
   if (!_ultimosResultados.length) return;
-  const qL = document.getElementById('vendaSearch').value.trim().toLowerCase();
+  const qL = q.toLowerCase();
   const exactMatch = _ultimosResultados.find(p =>
     String(p.codigo).toLowerCase() === qL ||
-    String(p.codigo_barras || '').toLowerCase() === qL
+    String(p.codigo_barras  || '').toLowerCase() === qL ||
+    String(p.codigo_barras2 || '').toLowerCase() === qL
   );
   if (exactMatch) addCartById(exactMatch.id);
   else if (_ultimosResultados.length === 1) addCartById(_ultimosResultados[0].id);
@@ -1230,6 +1242,7 @@ async function importar(){
   fd.append('arquivo',    file);
   fd.append('col_codigo',  document.getElementById('colCodigo').value);
   fd.append('col_barras',  document.getElementById('colBarras').value);
+  fd.append('col_barras2', document.getElementById('colBarras2').value);
   fd.append('col_nome',    document.getElementById('colNome').value);
   fd.append('col_preco',   document.getElementById('colPreco').value);
   fd.append('separador',   document.getElementById('separator').value);

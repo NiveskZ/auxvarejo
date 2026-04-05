@@ -22,6 +22,7 @@ def importar():
     col_nome = request.form.get('col_nome', 'produto').strip()
     col_preco = request.form.get('col_preco', 'pv').strip()
     col_barras = request.form.get('col_barras', 'codigo de barras').strip()
+    col_barras2 = request.form.get('col_barras2', 'cod.interno').strip()
     separador = request.form.get('separador', ',')
     if separador == '\\t':
         separador = '\t'
@@ -106,6 +107,7 @@ def importar():
             i_nome   = get_idx(col_nome)
             i_preco  = get_idx(col_preco)
             i_barras = get_idx(col_barras)
+            i_barras2 = get_idx(col_barras2)
     
             if i_nome < 0:
                 return jsonify({'ok': False,
@@ -135,8 +137,12 @@ def importar():
                 barras_val = ''
                 if i_barras >= 0 and i_barras < len(row) and row[i_barras] is not None:
                     barras_val = limpar_codigo(row[i_barras])
+                
+                barras2_val = ''
+                if i_barras2 >= 0 and i_barras2 < len(row) and row[i_barras2] is not None:
+                    barras2_val = limpar_codigo(row[i_barras2])
     
-                produtos.append((codigo_val, barras_val, nome_val, preco_val))
+                produtos.append((codigo_val, barras_val, barras2_val, nome_val, preco_val))
     
             if not produtos:
                 return jsonify({'ok': False,
@@ -146,13 +152,13 @@ def importar():
             db = get_db()
             db.execute("DELETE FROM produtos")
             db.executemany(
-                "INSERT INTO produtos(codigo, codigo_barras, nome, preco) VALUES (?, ?, ?, ?)",
+                "INSERT INTO produtos(codigo, codigo_barras, codigo_barras2, nome, preco) VALUES (?, ?, ?, ?, ?)",
                 produtos
             )
             db.commit()
     
             preview = [
-                {'codigo': p[0], 'codigo_barras': p[1], 'nome': p[2], 'preco': fmt_brl(p[3])}
+                {'codigo': p[0], 'codigo_barras': p[1], 'codigo_barras2': p[2], 'nome': p[3], 'preco': fmt_brl(p[4])}
                 for p in produtos[:10]
             ]
             return jsonify({
@@ -177,26 +183,28 @@ def buscar():
     like = f'%{q}%'
     # Prioridade: código exato (0) > código de barras exato (1) > parcial (2)
     rows = get_db().execute(
-        """SELECT id, codigo, codigo_barras, nome, preco FROM produtos
-           WHERE nome LIKE ? OR codigo LIKE ? OR codigo_barras LIKE ?
+        """SELECT id, codigo, codigo_barras, codigo_barras2, nome, preco FROM produtos
+           WHERE nome LIKE ? OR codigo LIKE ? OR codigo_barras LIKE ? OR codigo_barras2 LIKE ?
            ORDER BY
              CASE
-               WHEN LOWER(codigo)        = LOWER(?) THEN 0
-               WHEN LOWER(codigo_barras) = LOWER(?) THEN 1
+               WHEN LOWER(codigo)         = LOWER(?) THEN 0
+               WHEN LOWER(codigo_barras)  = LOWER(?) THEN 1
+               WHEN LOWER(codigo_barras2) = LOWER(?) THEN 1
                ELSE 2
              END,
              nome
            LIMIT 12""",
-        (like, like, like, q, q)
+        (like, like, like, like, q, q, q)
     ).fetchall()
- 
+
     return jsonify([{
-        'id':            r['id'],
-        'codigo':        r['codigo'],
-        'codigo_barras': r['codigo_barras'],
-        'nome':          r['nome'],
-        'preco':         r['preco'],
-        'preco_fmt':     fmt_brl(r['preco']),
+        'id':             r['id'],
+        'codigo':         r['codigo'],
+        'codigo_barras':  r['codigo_barras'],
+        'codigo_barras2': r['codigo_barras2'],
+        'nome':           r['nome'],
+        'preco':          r['preco'],
+        'preco_fmt':      fmt_brl(r['preco']),
     } for r in rows])
  
  

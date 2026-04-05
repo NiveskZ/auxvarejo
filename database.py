@@ -67,6 +67,7 @@ def init_db():
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo        TEXT,
             codigo_barras TEXT,
+            codigo_barras2 TEXT,
             nome          TEXT NOT NULL,
             preco         REAL NOT NULL DEFAULT 0
         );
